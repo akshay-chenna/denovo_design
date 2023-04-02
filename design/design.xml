@@ -1,0 +1,202 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="bb_only" weights="empty.wts" >
+                        <Reweight scoretype="fa_rep" weight="0.1" />
+                        <Reweight scoretype="fa_atr" weight="0.2" />
+                        <Reweight scoretype="hbond_sr_bb" weight="2" />
+                        <Reweight scoretype="hbond_lr_bb" weight="2" />
+                        <Reweight scoretype="rama_prepro" weight="0.45" />
+                        <Reweight scoretype="omega" weight="0.4" />
+                        <Reweight scoretype="p_aa_pp" weight="0.6" />
+                </ScoreFunction>
+		<ScoreFunction name="ref15_cart_cst" weights="ref2015_cart.wts" >
+			<Reweight scoretype="chainbreak" weight="1" />
+                        <Reweight scoretype="coordinate_constraint" weight="1" />
+                        <Reweight scoretype="atom_pair_constraint" weight="1" />
+                        <Reweight scoretype="angle_constraint" weight="1" />
+                        <Reweight scoretype="dihedral_constraint" weight="1" />
+                        <Reweight scoretype="res_type_constraint" weight="1" />
+                        <Reweight scoretype="metalbinding_constraint" weight="1" />
+                </ScoreFunction>
+	</SCOREFXNS>
+	
+	<RESIDUE_SELECTORS>
+                Select the peptide
+                <Index name="peptide" resnums="1B-8B" />
+		Select the protein
+		<Not name="protein" selector="peptide" />
+		Peptide near protein. Does not select the protein
+		<Neighborhood name="near_protein" distance="8" selector="protein" include_focus_in_subset="false" />
+		Amino acids without fixed identity
+		<Or name="peptide_designable_residues" selectors="near_protein" />
+		Amino acids with fixed identity
+		<Not name="non_designable_residues" selector="peptide_designable_residues" />
+                Select all residues with positive phi
+                <Phi name="positive_phi" select_positive_phi="true" />
+                Select all residues with negative phi
+                <Not name="negative_phi" selector="positive_phi" />
+                Select designable positions that can be D-amino acids
+                And name="designable_positive_phi" selectors="peptide_designable_residues,positive_phi" />
+                Select designable positions that can be L-amino acids
+                <And name="designable_negative_phi" selectors="peptide_designable_residues,negative_phi" />
+	        Select target positions that are within 8 A of the peptide in space. Also selects the peptide
+                <Neighborhood name="near_peptide" distance="8" selector="peptide" />
+                Select target positions that are more than 8 A from the peptide in space
+                <Not name="not_near_peptide" selector="near_peptide" />        
+		Movable backbone
+                <Or name="movable_backbone" selectors="peptide" />
+                Select positions on the peptide for which the backbone is movable, or which are close to the peptide
+                <Or name="movable_sidechains" selectors="movable_backbone,peptide,near_peptide" />
+        </RESIDUE_SELECTORS>
+	
+	<PACKER_PALETTES> 
+	This packer palette activates a set of non-canonical amino acids with exotic side chains	
+		CustomBaseTypePackerPalette name="design_palette" additional_residue_types="DALA,DASP,DGLU,DHIS,DILE,DLYS,DLEU,DMET,DASN,DPRO,DGLN,DARG,DSER,DTHR,DVAL,DTRP,DTYR,DPHE" /> 
+	</PACKER_PALETTES>
+
+        <TASKOPERATIONS>
+		Restrict to repacking
+		<RestrictToRepacking name="rtr" />
+                Only allow residues within 8 A of the peptide to repack or be designed
+		This turns off any packing on the protein that is further than 8A away from the peptide.
+                <OperateOnResidueSubset name="only_repack_near_peptide" selector="not_near_peptide" >
+                        <PreventRepackingRLT />
+                </OperateOnResidueSubset>
+                Restrict non-peptide positions to repacking; design only the peptide
+		This turns off design (restricts to repacking) on the protein within 8A of the peptide
+                <OperateOnResidueSubset name="only_design_peptide" selector="non_designable_residues">
+                        <RestrictToRepackingRLT />
+                </OperateOnResidueSubset>
+                Allow D-amino acids at designable positives phis
+                ReadResfile name="resfile_positive_phi" selector="designable_positive_phi" filename="pos_phi.resfile" />
+                Allow L-amino acids
+                <ReadResfile name="resfile_negative_phi" selector="designable_negative_phi" filename="neg_phi.resfile" />
+                Allow current/input rotamteric states 
+                <IncludeCurrent name="include_current" />
+                Allow more finely-sampled rotamers
+                <ExtraRotamersGeneric name="ex1_ex2" ex1="true" ex2="true" extrachi_cutoff="6" />
+        </TASKOPERATIONS>
+
+        Jump selectors are used to select rigid-body transforms in the fold tree
+        <JUMP_SELECTORS>
+                JumpIndex name="fixed_jumps" jump="1" />
+                Not name="movable_jumps" selector="fixed_jumps" />
+        </JUMP_SELECTORS>
+
+        <MOVE_MAP_FACTORIES>
+                MoveMapFactory name="frlx_mm_factory" bb="false" chi="false" jumps="false">
+                        Backbone residue_selector="movable_backbone" />
+                        Chi residue_selector="movable_sidechains" />
+                        Jumps jump_selector="movable_jumps" />
+                /MoveMapFactory>
+        </MOVE_MAP_FACTORIES>
+
+        <FILTERS>
+		<ChainBreak name="chain_break" />
+		<ShapeComplementarity name="shape_complementarity" min_sc="0.5" jump="1" write_int_area="1" />
+        	<Ddg name="binding_energy" scorefxn="REF2015" threshold="0" />
+		<ScoreType name="complex_score" scorefxn="REF2015" threshold="0" /> 
+	</FILTERS>
+
+	<MOVERS>
+
+		Randomize by ramaprepro
+		RandomizeBBByRamaPrePro name="RamaPrePro" residue_selector="movable_backbone" />	
+		<GeneralizedKIC name="RamaPrePro" closure_attempts="1000" stop_when_n_solutions_found="100" selector="lowest_energy_selector" selector_scorefunction="bb_only" >
+
+                        <AddResidue res_index="72" />
+                        <AddResidue res_index="73" />
+                        <AddResidue res_index="74" />
+                        <AddResidue res_index="75" />
+                        <AddResidue res_index="76" />
+                        <AddResidue res_index="77" />
+
+                        <SetPivots res1="72" res2="75" res3="77" atom1="CA" atom2="CA" atom3="CA" />
+                        <AddPerturber effect="randomize_backbone_by_rama_prepro">
+                                <AddResidue index="72" />
+                                <AddResidue index="73" />
+                                <AddResidue index="74" />
+                                <AddResidue index="75" />
+                                <AddResidue index="76" />
+                        </AddPerturber>
+                        <AddFilter type="loop_bump_check" />
+                        <AddFilter type="rama_prepro_check" residue="72" rama_cutoff_energy="0.5" />
+                        <AddFilter type="rama_prepro_check" residue="73" rama_cutoff_energy="0.5" />
+                        <AddFilter type="rama_prepro_check" residue="74" rama_cutoff_energy="0.5" />
+                        <AddFilter type="rama_prepro_check" residue="75" rama_cutoff_energy="0.5" />
+                        <AddFilter type="rama_prepro_check" residue="76" rama_cutoff_energy="0.5" />
+                        <AddFilter type="rama_prepro_check" residue="77" rama_cutoff_energy="0.5" />
+                </GeneralizedKIC>
+
+		GKIC perturb
+		 <GeneralizedKIC name="gkic_perturb" closure_attempts="1000" stop_when_n_solutions_found="100" selector="lowest_energy_selector" selector_scorefunction="bb_only" >
+
+                        <AddResidue res_index="72" />
+                        <AddResidue res_index="73" />
+                        <AddResidue res_index="74" />
+                        <AddResidue res_index="75" />
+                        <AddResidue res_index="76" />
+                        <AddResidue res_index="77" />
+
+                        <SetPivots res1="72" res2="75" res3="77" atom1="CA" atom2="CA" atom3="CA" />
+                        <AddPerturber effect="perturb_dihedral">
+                                <AddAtoms res1="72" atom1="N" res2="72" atom2="CA" />
+                                <AddAtoms res1="73" atom1="N" res2="73" atom2="CA" />
+                                <AddAtoms res1="74" atom1="N" res2="74" atom2="CA" />
+                                <AddAtoms res1="75" atom1="N" res2="75" atom2="CA" />
+                                <AddAtoms res1="76" atom1="N" res2="76" atom2="CA" />
+                                <AddAtoms res1="77" atom1="N" res2="77" atom2="CA" />
+                                <AddAtoms res1="72" atom1="CA" res2="72" atom2="C" />
+                                <AddAtoms res1="73" atom1="CA" res2="73" atom2="C" />
+                                <AddAtoms res1="74" atom1="CA" res2="74" atom2="C" />
+                                <AddAtoms res1="75" atom1="CA" res2="75" atom2="C" />
+                                <AddAtoms res1="76" atom1="CA" res2="76" atom2="C" />
+                                <AddAtoms res1="77" atom1="CA" res2="77" atom2="C" />
+                                <AddValue value="10" />
+                        </AddPerturber>
+			<AddFilter type="loop_bump_check" />
+                </GeneralizedKIC>
+		
+		
+		Design the peptide interface
+		 FastDesign name="fdes" repeats="1" scorefxn="REF2015" movemap_factory="frlx_mm_factory" task_operations="resfile_positive_phi,resfile_negative_phi,only_repack_near_peptide,only_design_peptide,include_current,ex1_ex2" packer_palette="design_palette" />
+                <PackRotamersMover name="design" scorefxn="REF2015" task_operations="include_current,resfile_negative_phi,only_repack_near_peptide,only_design_peptide,ex1_ex2" />
+		
+
+		Add constraints
+                <AtomCoordinateCstMover name="cst" />
+                <VirtualRoot name="root" removable="1" />
+                <VirtualRoot name="remove" remove="1" />
+
+                Relax in constrained cartesian mode
+		<FastRelax name="relax_cart" scorefxn="ref15_cart_cst" cartesian="1" repeats="1" task_operations="include_current,rtr,ex1_ex2" />
+		
+		Record Trajectory of accepted structures
+                PDBTrajectoryRecorder name="traj_accepted" stride="1" filename="traj_accepted.pdb" cumulate_jobs="0" cumulate_replicas="0" />
+		Parsed Protocol
+		<ParsedProtocol name="design_move_relax" >
+			Add mover="traj_accepted" />
+			<Add mover="design" />
+			<Add mover="gkic_perturb" />
+			<Add mover="root" />
+			<Add mover="cst" />
+			<Add mover="relax_cart" />
+			<Add mover="remove" />
+			<Add filter="complex_score" />
+		</ParsedProtocol>	
+
+		SingleCriterion MC optimisation
+		<GenericMonteCarlo name="MC_moves" mover_name="design_move_relax" filter_name="binding_energy" trials="2000" temperature="0.5" recover_low="1" />
+	</MOVERS>
+	<APPLY_TO_POSE>
+	</APPLY_TO_POSE>
+	<PROTOCOLS>
+		<Add mover="RamaPrePro" />
+		Do a MC exploration of the sequence and structural space
+		<Add mover="MC_moves" />
+		Calculate interface metrics for the final sequence
+		<Add filter="binding_energy" />
+		<Add filter="shape_complementarity" />
+	</PROTOCOLS>
+	<OUTPUT scorefxn="REF2015" />
+</ROSETTASCRIPTS>

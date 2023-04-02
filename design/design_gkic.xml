@@ -1,0 +1,302 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="bb_only" weights="empty.wts" >
+                        <Reweight scoretype="fa_rep" weight="0.1" />
+                        <Reweight scoretype="fa_atr" weight="0.2" />
+                        <Reweight scoretype="hbond_sr_bb" weight="2" />
+                        <Reweight scoretype="hbond_lr_bb" weight="2" />
+                        <Reweight scoretype="rama_prepro" weight="0.45" />
+                        <Reweight scoretype="omega" weight="0.4" />
+                        <Reweight scoretype="p_aa_pp" weight="0.6" />
+                </ScoreFunction>
+		<ScoreFunction name="ref15_cart_cst" weights="ref2015_cart.wts" >
+			<Reweight scoretype="chainbreak" weight="1" />
+                        <Reweight scoretype="atom_pair_constraint" weight="1" />
+                </ScoreFunction>
+	</SCOREFXNS>
+	
+	<RESIDUE_SELECTORS>
+                Select the peptide
+                <Index name="peptide" resnums="1A-29A" />
+                Amino acids without fixed identity
+                <Index name="peptide_designable_residues" resnums="23A-29A" />
+                Amino acids with fixed identity
+                <Not name="non_designable_residues" selector="peptide_designable_residues" />
+                Select all residues with positive phi
+                <Phi name="positive_phi" select_positive_phi="true" />
+                Select all residues with negative phi
+                <Not name="negative_phi" selector="positive_phi" />
+                Select designable positions that can be D-amino acids
+                <And name="designable_positive_phi" selectors="peptide_designable_residues,positive_phi" />
+                Select designable positions that can be L-amino acids
+                <And name="designable_negative_phi" selectors="peptide_designable_residues,negative_phi" />
+                Select target positions that are within 8 A of the peptide in space. Also selects the peptide
+                <Neighborhood name="near_peptide" distance="8" selector="peptide" />
+                Select target positions that are more than 8 A from the peptide in space
+                <Not name="not_near_peptide" selector="near_peptide" />
+                Movable backbone
+                <Index name="movable_backbone" resnums="23A-29A" />
+                Select positions for which the sidechains are movable, or which are close to the peptide
+                <Or name="movable_sidechains" selectors="peptide,near_peptide" />
+
+		Select the protein
+		<Not name="protein" selector="peptide" />
+		Select target positions that are within 8 A of the protein in space. Do not select itself.
+                <Neighborhood name="peptide_interface" distance="8" selector="protein" include_focus_in_subset="0" />
+                Select target positions that are within 8 A of the peptide in space. Does not select itself.
+                <Neighborhood name="protein_interface" distance="8" selector="peptide" include_focus_in_subset="0" />
+                Select interface
+                <Or name="interface" selectors="peptide_interface,protein_interface" />
+        	Select non_interface
+                <Not name="non_interface" selector="interface" />
+		</RESIDUE_SELECTORS>
+	
+	<PACKER_PALETTES> 
+	This packer palette activates a set of non-canonical amino acids with exotic side chains	
+		<CustomBaseTypePackerPalette name="design_palette" additional_residue_types="DALA,DASP,DGLU,DHIS,DILE,DLYS,DLEU,DMET,DASN,DPRO,DGLN,DARG,DSER,DTHR,DVAL,DTRP,DTYR,DPHE" /> 
+	</PACKER_PALETTES>
+
+        <TASKOPERATIONS>
+		Restrict to repacking
+		<RestrictToRepacking name="rtr" />
+                Only allow residues within 8 A of the peptide to repack or be designed
+                <OperateOnResidueSubset name="only_repack_near_peptide" selector="not_near_peptide" >
+                        <PreventRepackingRLT />
+                </OperateOnResidueSubset>
+                Restrict non-peptide positions to repacking; design only the peptide:
+                <OperateOnResidueSubset name="only_design_peptide" selector="non_designable_residues">
+                        <RestrictToRepackingRLT />
+                </OperateOnResidueSubset>
+		Disallow non interface residues from repacking or design
+                <OperateOnResidueSubset name="no_repacking" selector="non_interface" >
+                        <PreventRepackingRLT />
+                </OperateOnResidueSubset>
+                Allow interface residues to only repack (ie no design):
+                <OperateOnResidueSubset name="only_repack" selector="interface">
+                        <RestrictToRepackingRLT />
+                </OperateOnResidueSubset>
+                Allow D-amino acids at designable positives phis
+                <ReadResfile name="resfile_positive_phi" selector="designable_positive_phi" filename="pos_phi.resfile" />
+                Allow L-amino acids
+                <ReadResfile name="resfile_negative_phi" selector="designable_negative_phi" filename="neg_phi.resfile" />
+                Allow Design-glycine at 28
+                <IncludeCurrent name="include_current" />
+                Allow more finely-sampled rotamers
+                <ExtraRotamersGeneric name="ex1_ex2" ex1="true" ex2="true" extrachi_cutoff="6" />
+        </TASKOPERATIONS>
+
+        Jump selectors are used to select rigid-body transforms in the fold tree
+        <JUMP_SELECTORS>
+                <JumpIndex name="fixed_jumps" jump="1" />
+                <Not name="movable_jumps" selector="fixed_jumps" />
+        </JUMP_SELECTORS>
+
+        <MOVE_MAP_FACTORIES>
+		<MoveMapFactory name="full_mm_factory" bb="1" chi="1" jumps="1" />
+		<MoveMapFactory name="mm_factory" bb="1" chi="1" jumps="0">
+                        Backbone residue_selector="interface" />
+			Chi residue_selector="movable_sidechains" />
+                </MoveMapFactory>
+		<MoveMapFactory name="loop_mm_factory" bb="0" chi="0" jumps="0">
+                        <Backbone residue_selector="near_peptide" />
+			<Chi residue_selector="near_peptide" />
+                </MoveMapFactory>
+        </MOVE_MAP_FACTORIES>
+
+        <FILTERS>
+                <ChainBreak name="chain_break" />	
+                <AtomicDistance name="dist_filter29" residue1="29" atomname1="C" residue2="1" atomname2="N" distance="1.4" />
+                <AtomicDistance name="SSdist_filter1" residue1="1" atomname1="SG" residue2="15" atomname2="SG" distance="2.2" />
+                <AtomicDistance name="SSdist_filter2" residue1="5" atomname1="SG" residue2="17" atomname2="SG" distance="2.2" />
+                <AtomicDistance name="SSdist_filter3" residue1="10" atomname1="SG" residue2="22" atomname2="SG" distance="2.2" />
+		<Sasa name="hphobic_interface_sa" hydrophobic="1" threshold="300" />
+		<ScoreType name="complex_score" scorefxn="REF2015" threshold="-300" />
+		<OversaturatedHbondAcceptorFilter name="oversat_hbond" scorefxn="REF2015" consider_mainchain_only="0" />
+                <ShapeComplementarity name="interface_shape" min_sc="0.66" jump="1" residue_selector1="peptide_interface" residue_selector2="protein_interface" /> 
+	</FILTERS>
+
+	<SIMPLE_METRICS>
+                <SequenceMetric name="capture_sequence" output_mode="fullname" residue_selector="peptide_designable_residues" />
+        </SIMPLE_METRICS>
+
+	<MOVERS>
+
+		Let rosetta know that it is a cyclic molecule. This can be checked in the output pdb
+                <DeclareBond name="CN_bond" atom1="C" atom2="N" res1="29" res2="1" />
+
+		Filter out poor solutions
+                <ParsedProtocol name="imp_checks" >
+                        <Add filter="chain_break" />
+                        <Add filter="dist_filter29"/>
+                        <Add filter="SSdist_filter1" />
+                        <Add filter="SSdist_filter2" />
+                        <Add filter="SSdist_filter3" />
+                	<Add filter="interface_shape" />
+                	<Add filter="oversat_hbond" />
+                </ParsedProtocol>
+		
+		FastRelax the full complex
+                 <FastRelax name="full_relax" scorefxn="ref15_cart_cst" dualspace="1" bondangle="1" cst_file="constraints.cst" packer_palette="design_palette" task_operations="include_current,ex1_ex2" movemap_factory="full_mm_factory" />
+
+		Fast Design during loop closure
+		<FastDesign name="gkic_des" scorefxn="ref15_cart_cst" task_operations="only_repack_near_peptide,only_design_peptide,resfile_positive_phi,resfile_negative_phi,include_current,ex1_ex2" packer_palette="design_palette" dualspace="1" bondangle="1" repeats="1" relaxscript="InterfaceDesign2019" cst_file="constraints.cst" movemap_factory="loop_mm_factory" />
+		
+		Design and filter out poor solutions from gkic randomization
+                <ParsedProtocol name="gkic_design_checks" >
+                	<Add filter="interface_shape" />
+			<Add mover="gkic_des" />
+                	<Add filter="oversat_hbond" />
+                        <Add filter="chain_break" />
+                        <Add filter="dist_filter29"/>
+                        <Add filter="SSdist_filter1" />
+                        <Add filter="SSdist_filter2" />
+                        <Add filter="SSdist_filter3" />
+                	<Add filter="interface_shape" />
+                </ParsedProtocol>
+
+		Randomization of loop 6 region
+		<GeneralizedKIC name="gkic_randomize" closure_attempts="5000" stop_when_n_solutions_found="3" selector="lowest_energy_selector" selector_scorefunction="REF2015" pre_selection_mover="gkic_design_checks" >
+
+                        <AddResidue res_index="23" />
+                        <AddResidue res_index="24" />
+                        <AddResidue res_index="25" />
+                        <AddResidue res_index="26" />
+                        <AddResidue res_index="27" />
+                        <AddResidue res_index="28" />
+                        <AddResidue res_index="29" />
+
+                        <SetPivots res1="23" res2="26" res3="29" atom1="CA" atom2="CA" atom3="CA" />
+                        <AddPerturber effect="randomize_backbone_by_rama_prepro">
+				<AddResidue index="23" />
+				<AddResidue index="24" />
+				<AddResidue index="25" />
+				<AddResidue index="26" />
+				<AddResidue index="27" />
+				<AddResidue index="28" />
+				<AddResidue index="29" />
+                        </AddPerturber>
+
+                        <AddFilter type="loop_bump_check" />
+                </GeneralizedKIC>
+
+		Small perturbation of loop 6 region before MC moves
+		<GeneralizedKIC name="gkic_small_perturb" closure_attempts="5000" stop_when_n_solutions_found="3" selector="lowest_energy_selector" selector_scorefunction="REF2015" pre_selection_mover="gkic_design_checks" >
+
+                        <AddResidue res_index="23" />
+                        <AddResidue res_index="24" />
+                        <AddResidue res_index="25" />
+                        <AddResidue res_index="26" />
+                        <AddResidue res_index="27" />
+                        <AddResidue res_index="28" />
+                        <AddResidue res_index="29" />
+
+                        <SetPivots res1="23" res2="26" res3="29" atom1="CA" atom2="CA" atom3="CA" />
+			<AddPerturber effect="perturb_dihedral">
+				<AddAtoms res1="23" atom1="N" res2="23" atom2="CA" />
+                                <AddAtoms res1="24" atom1="N" res2="24" atom2="CA" />
+                                <AddAtoms res1="25" atom1="N" res2="25" atom2="CA" />
+                                <AddAtoms res1="26" atom1="N" res2="26" atom2="CA" />
+                                <AddAtoms res1="27" atom1="N" res2="27" atom2="CA" />
+                                <AddAtoms res1="28" atom1="N" res2="28" atom2="CA" />
+                                <AddAtoms res1="29" atom1="N" res2="29" atom2="CA" />
+				<AddAtoms res1="23" atom1="CA" res2="23" atom2="C" />
+                                <AddAtoms res1="24" atom1="CA" res2="24" atom2="C" />
+                                <AddAtoms res1="25" atom1="CA" res2="25" atom2="C" />
+                                <AddAtoms res1="26" atom1="CA" res2="26" atom2="C" />
+                                <AddAtoms res1="27" atom1="CA" res2="27" atom2="C" />
+                                <AddAtoms res1="28" atom1="CA" res2="28" atom2="C" />
+                                <AddAtoms res1="29" atom1="CA" res2="29" atom2="C" />
+				<AddValue value="10" />
+                        </AddPerturber>
+                        <AddFilter type="loop_bump_check" />
+		</GeneralizedKIC>
+	
+		GKIC perturb
+		<GeneralizedKIC name="gkic_perturb" closure_attempts="1000" stop_when_n_solutions_found="10" selector="lowest_rmsd_selector" selector_scorefunction="bb_only" >
+
+                        <AddResidue res_index="23" />
+                        <AddResidue res_index="24" />
+                        <AddResidue res_index="25" />
+                        <AddResidue res_index="26" />
+                        <AddResidue res_index="27" />
+                        <AddResidue res_index="28" />
+                        <AddResidue res_index="29" />
+
+                        <SetPivots res1="23" res2="26" res3="29" atom1="CA" atom2="CA" atom3="CA" />
+			<AddPerturber effect="perturb_dihedral">
+				<AddAtoms res1="23" atom1="N" res2="23" atom2="CA" />
+                                <AddAtoms res1="24" atom1="N" res2="24" atom2="CA" />
+                                <AddAtoms res1="25" atom1="N" res2="25" atom2="CA" />
+                                <AddAtoms res1="26" atom1="N" res2="26" atom2="CA" />
+                                <AddAtoms res1="27" atom1="N" res2="27" atom2="CA" />
+                                <AddAtoms res1="28" atom1="N" res2="28" atom2="CA" />
+                                <AddAtoms res1="29" atom1="N" res2="29" atom2="CA" />
+				<AddAtoms res1="23" atom1="CA" res2="23" atom2="C" />
+                                <AddAtoms res1="24" atom1="CA" res2="24" atom2="C" />
+                                <AddAtoms res1="25" atom1="CA" res2="25" atom2="C" />
+                                <AddAtoms res1="26" atom1="CA" res2="26" atom2="C" />
+                                <AddAtoms res1="27" atom1="CA" res2="27" atom2="C" />
+                                <AddAtoms res1="28" atom1="CA" res2="28" atom2="C" />
+                                <AddAtoms res1="29" atom1="CA" res2="29" atom2="C" />
+				<AddValue value="10" />
+                        </AddPerturber>
+		</GeneralizedKIC>
+		
+		Design the cyclotide interface
+                <PackRotamersMover name="design" scorefxn="REF2015" packer_palette="design_palette" task_operations="only_repack_near_peptide,only_design_peptide,resfile_negative_phi,resfile_positive_phi,include_current,ex1_ex2" />
+		
+		FastRelax the interface and full peptide
+                 <FastRelax name="interface_relax" scorefxn="ref15_cart_cst" dualspace="1" bondangle="1" repeats="3" relaxscript="InterfaceDesign2019" cst_file="constraints.cst" movemap_factory="mm_factory" packer_palette="design_palette" task_operations="only_repack_near_peptide,include_current,ex1_ex2" />
+
+		ddGRelax
+		<FastRelax name="ddg_relax" scorefxn="ref15_cart_cst" dualspace="1" bondangle="1" relaxscript="MonomerRelax2019" cst_file="constraints.cst" movemap_factory="mm_factory" packer_palette="design_palette" task_operations="only_repack_near_peptide,include_current,ex1_ex2" />		
+
+		Parsed Protocol into MC 
+		<ParsedProtocol name="design_gkic_relax" >
+			<Add mover="gkic_perturb" />
+			<Add mover="design" />
+			<Add mover="interface_relax" />
+                        <Add filter="chain_break" />
+                        <Add filter="dist_filter29"/>
+                        <Add filter="SSdist_filter1" />
+                        <Add filter="SSdist_filter2" />
+                        <Add filter="SSdist_filter3" />
+			<Add filter="oversat_hbond" />
+		</ParsedProtocol>	
+        </MOVERS> 
+	
+	<FILTERS>
+		Report binding energy at the end
+		<Ddg name="binding_energy" scorefxn="REF2015" threshold="0" repack_bound="0" repack_unbound="0" relax_bound="1" relax_unbound="1" relax_mover="ddg_relax" translate_by="10000"/>
+
+		Compute binding energy
+                <Ddg name="mc_binding_energy" scorefxn="REF2015" threshold="0" repack_bound="0" repack_unbound="0" relax_bound="0" relax_unbound="1" relax_mover="ddg_relax" translate_by="10000" />
+	</FILTERS>
+		MultiCriterion MC optimisation
+	<MOVERS>
+		<GenericMonteCarlo name="MC_moves" mover_name="design_gkic_relax" filter_name="complex_score" temperature="7.5" trials="250" recover_low="1" preapply="0" >
+			<Filters>
+				<AND filter_name="mc_binding_energy" temperature="1" />
+			</Filters>
+		</GenericMonteCarlo>
+		Store the amino acid sequence at the end for output in the PDB file:
+                <RunSimpleMetrics name="run_metrics" metrics="capture_sequence" prefix="Loop6_" />
+	</MOVERS>
+
+	<PROTOCOLS>
+		Pre-design mover to avoid bias
+		<Add mover="CN_bond" />
+		<Add mover="full_relax" />
+		<Add mover="imp_checks" />
+		<Add mover="gkic_randomize" />
+		<Add mover="gkic_small_perturb" />
+		<Add mover="interface_relax" />
+		<Add mover="imp_checks" />
+		Do a MC exploration of the sequence and structural space
+		<Add mover="MC_moves" />
+		Calculate interface metrics for the final sequence
+		<Add mover="run_metrics" />
+		<Add filter="binding_energy" />
+	</PROTOCOLS>
+	<OUTPUT scorefxn="REF2015" />
+</ROSETTASCRIPTS>
