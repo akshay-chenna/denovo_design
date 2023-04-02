@@ -1,0 +1,35 @@
+# At least three, at max six hydrophobics
+#Compulsory
+PENALTY_DEFINITION
+#What type of residues are desired?
+TYPE ALA DAL PHE DPH ILE DIL LEU DLE MET DME PRO DPR VAL DVA TRP DTR
+#Penalize if fewer than
+DELTA_START -4
+#Penalized if higher than
+DELTA_END 1
+#Compulsory "Penalties from Delta start to end"
+PENALTIES 50 40 25 10 0 0
+#What fraction or number of residues are desired ?
+ABSOLUTE 4
+BEFORE_FUNCTION QUADRATIC
+AFTER_FUNCTION CONSTANT
+#Compulsory
+END_PENALTY_DEFINITION
+
+#At most one aromatic (W,F)
+#Compulsory
+PENALTY_DEFINITION
+#What type of residues are desired?
+TYPE PHE TRP MET TYR LEU 
+#Penalize if fewer than
+DELTA_START -1
+#Penalized if higher than
+DELTA_END 1
+#Compulsory "Penalties from Delta start to end"
+PENALTIES 0 0 15
+#What fraction or number of residues are desired ?
+ABSOLUTE 1
+BEFORE_FUNCTION CONSTANT
+AFTER_FUNCTION QUADRATIC
+#Compulsory
+END_PENALTY_DEFINITION
