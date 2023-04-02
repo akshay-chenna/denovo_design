@@ -1,0 +1,51 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="ref15_cst" weights="ref2015.wts" >
+			<Reweight scoretype="chainbreak" weight="1" />
+                        <Reweight scoretype="coordinate_constraint" weight="1" />
+                        <Reweight scoretype="atom_pair_constraint" weight="1" />
+                        <Reweight scoretype="angle_constraint" weight="1" />
+                        <Reweight scoretype="dihedral_constraint" weight="1" />
+                        <Reweight scoretype="res_type_constraint" weight="1" />
+                        <Reweight scoretype="metalbinding_constraint" weight="1" />
+                </ScoreFunction>
+	</SCOREFXNS>
+	<APPLY_TO_POSE>
+	</APPLY_TO_POSE>
+
+        <TASKOPERATIONS>
+		Restrict to repacking
+		<RestrictToRepacking name="rtr" />
+                Allow current/input rotamteric states 
+                <IncludeCurrent name="include_current" />
+                Allow more finely-sampled rotamers
+                <ExtraRotamersGeneric name="ex1_ex2" ex1="true" ex2="true" extrachi_cutoff="6" />
+        </TASKOPERATIONS>
+ 	<FILTERS>
+        </FILTERS>
+	
+	<MOVERS>
+	
+		Add constraints
+                <AtomCoordinateCstMover name="cst" />
+                <VirtualRoot name="root" removable="1" />
+                <VirtualRoot name="remove" remove="1" />
+
+                Relax in constrained cartesian mode
+		<FastRelax name="relax_cart" scorefxn="ref15_cst" cartesian="0" repeats="2" task_operations="include_current,rtr,ex1_ex2" />
+		
+		<ParsedProtocol name="relax" >
+			<Add mover="root" />
+			<Add mover="cst" />
+			<Add mover="relax_cart" />
+			<Add mover="remove" />
+		</ParsedProtocol>	
+		
+		<ddG name="be" scorefxn="REF2015" per_residue_ddg="1" relax_unbound="0" relax_bound="1" solvate="1" solvate_unbound="1" relax_mover="relax"/>	
+	</MOVERS>
+
+	<PROTOCOLS>
+		<Add mover="be" />
+	</PROTOCOLS>
+	<OUTPUT scorefxn="REF2015" />
+</ROSETTASCRIPTS>

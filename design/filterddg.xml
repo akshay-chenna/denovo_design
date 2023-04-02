@@ -1,0 +1,53 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="ref15_cart_cst" weights="ref2015_cart.wts" >
+			<Reweight scoretype="chainbreak" weight="1" />
+                        <Reweight scoretype="coordinate_constraint" weight="1" />
+                        <Reweight scoretype="atom_pair_constraint" weight="1" />
+                        <Reweight scoretype="angle_constraint" weight="1" />
+                        <Reweight scoretype="dihedral_constraint" weight="1" />
+                        <Reweight scoretype="res_type_constraint" weight="1" />
+                        <Reweight scoretype="metalbinding_constraint" weight="1" />
+                </ScoreFunction>
+	</SCOREFXNS>
+	<APPLY_TO_POSE>
+	</APPLY_TO_POSE>
+
+        <TASKOPERATIONS>
+		Restrict to repacking
+		<RestrictToRepacking name="rtr" />
+                Allow current/input rotamteric states 
+                <IncludeCurrent name="include_current" />
+                Allow more finely-sampled rotamers
+                <ExtraRotamersGeneric name="ex1_ex2" ex1="true" ex2="true" extrachi_cutoff="6" />
+        </TASKOPERATIONS>
+	
+	<MOVERS>
+	
+		Add constraints
+                <AtomCoordinateCstMover name="cst" />
+                <VirtualRoot name="root" removable="1" />
+                <VirtualRoot name="remove" remove="1" />
+
+                Relax in constrained cartesian mode
+		<FastRelax name="relax_cart" scorefxn="REF2015" repeats="1" task_operations="include_current,rtr,ex1_ex2" />
+		
+		<ParsedProtocol name="relax" >
+			<Add mover="root" />
+			<Add mover="cst" />
+			<Add mover="relax_cart" />
+			<Add mover="remove" />
+		</ParsedProtocol>	
+		
+	</MOVERS>
+ 	<FILTERS>
+                <ShapeComplementarity name="shape_complementarity" min_sc="0.5" jump="1" write_int_area="1" />
+                <Ddg name="binding_energy" scorefxn="REF2015" threshold="0" relax_bound="1" relax_mover="relax" relax_unbound="0" />
+        </FILTERS>
+
+	<PROTOCOLS>
+		<Add filter="binding_energy" />
+		<Add filter="shape_complementarity" />
+	</PROTOCOLS>
+	<OUTPUT scorefxn="REF2015" />
+</ROSETTASCRIPTS>

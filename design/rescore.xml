@@ -1,0 +1,37 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+                <ScoreFunction name="design_aacomp" weights="ref2015.wts" > 
+                        <Reweight scoretype="aa_composition" weight="1" /> 
+                </ScoreFunction> 
+	</SCOREFXNS>
+	
+	<RESIDUE_SELECTORS>
+                Amino acids without fixed identity
+                <Index name="peptide_designable_residues" resnums="23A-29A" />
+	</RESIDUE_SELECTORS>
+
+	<FILTERS>
+		<ScoreType name="complex_score_aacomp" scorefxn="design_aacomp" threshold="-100" />
+	</FILTERS>
+
+	<SIMPLE_METRICS>
+                <SequenceMetric name="capture_sequence" output_mode="fullname" residue_selector="peptide_designable_residues" />
+        </SIMPLE_METRICS>
+
+	<MOVERS>
+		Let rosetta know that it is a cyclic molecule. This can be checked in the output pdb
+                <DeclareBond name="CN_bond" atom1="C" atom2="N" res1="29" res2="1" />
+                Add an composition mover, to confer more cell penetrability
+                <AddCompositionConstraintMover name="cpp" filename="cpp.comp" selector="peptide_designable_residues" />
+		Store the amino acid sequence at the end for output in the PDB file:
+                <RunSimpleMetrics name="run_metrics" metrics="capture_sequence" prefix="Loop6_" />
+	</MOVERS>
+	<PROTOCOLS>
+		<Add mover="CN_bond" />
+		<Add mover="cpp" />
+		Calculate interface metrics for the final sequence
+		<Add mover="run_metrics" />
+		<Add filter="complex_score_aacomp" />
+	</PROTOCOLS>
+	<OUTPUT scorefxn="REF2015" />
+</ROSETTASCRIPTS>

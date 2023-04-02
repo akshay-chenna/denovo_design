@@ -1,0 +1,84 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="ref15_cart_cst" weights="ref2015_cart.wts" >
+			<Reweight scoretype="chainbreak" weight="1" />
+                        <Reweight scoretype="atom_pair_constraint" weight="1" />
+                </ScoreFunction>
+	</SCOREFXNS>
+	
+	<RESIDUE_SELECTORS>
+                Select the peptide
+                <Index name="peptide" resnums="1A-29A" />
+                Select target positions that are within 8 A of the peptide in space. Also selects the peptide
+                <Neighborhood name="near_peptide" distance="8" selector="peptide" />
+                Select target positions that are more than 8 A from the peptide in space
+                <Not name="not_near_peptide" selector="near_peptide" />
+		</RESIDUE_SELECTORS>
+	
+	<PACKER_PALETTES> 
+	This packer palette activates a set of non-canonical amino acids with exotic side chains	
+		<CustomBaseTypePackerPalette name="design_palette" additional_residue_types="DALA,DASP,DGLU,DHIS,DILE,DLYS,DLEU,DMET,DASN,DPRO,DGLN,DARG,DSER,DTHR,DVAL,DTRP,DTYR,DPHE" /> 
+	</PACKER_PALETTES>
+
+        <TASKOPERATIONS>
+                Only allow residues within 8 A of the peptide to repack or be designed
+                <OperateOnResidueSubset name="only_repack_near_peptide" selector="not_near_peptide" >
+                        <PreventRepackingRLT />
+                </OperateOnResidueSubset>
+                Allow Design-glycine at 28
+                <IncludeCurrent name="include_current" />
+                Allow more finely-sampled rotamers
+                <ExtraRotamersGeneric name="ex1_ex2" ex1="true" ex2="true" extrachi_cutoff="6" />
+        </TASKOPERATIONS>
+
+        Jump selectors are used to select rigid-body transforms in the fold tree
+        <JUMP_SELECTORS>
+        </JUMP_SELECTORS>
+
+        <MOVE_MAP_FACTORIES>
+		<MoveMapFactory name="mm_factory" bb="1" chi="1" jumps="0">
+                </MoveMapFactory>
+        </MOVE_MAP_FACTORIES>
+
+        <FILTERS>
+                <ChainBreak name="chain_break" />	
+                <AtomicDistance name="dist_filter29" residue1="29" atomname1="C" residue2="1" atomname2="N" distance="1.4" />
+                <AtomicDistance name="SSdist_filter1" residue1="1" atomname1="SG" residue2="15" atomname2="SG" distance="2.2" />
+                <AtomicDistance name="SSdist_filter2" residue1="5" atomname1="SG" residue2="17" atomname2="SG" distance="2.2" />
+                <AtomicDistance name="SSdist_filter3" residue1="10" atomname1="SG" residue2="22" atomname2="SG" distance="2.2" />
+	</FILTERS>
+
+	<MOVERS>
+
+		Let rosetta know that it is a cyclic molecule. This can be checked in the output pdb
+                <DeclareBond name="CN_bond" atom1="C" atom2="N" res1="29" res2="1" />
+
+		Filter out poor solutions
+                <ParsedProtocol name="imp_checks" >
+                        <Add filter="chain_break" />
+                        <Add filter="dist_filter29"/>
+                        <Add filter="SSdist_filter1" />
+                        <Add filter="SSdist_filter2" />
+                        <Add filter="SSdist_filter3" />
+                </ParsedProtocol>
+		
+		FastRelax the interface and full peptide
+                 <FastRelax name="interface_relax" scorefxn="ref15_cart_cst" dualspace="1" bondangle="1" repeats="1" relaxscript="InterfaceRelax2019" cst_file="constraints.cst" movemap_factory="mm_factory" packer_palette="design_palette" task_operations="only_repack_near_peptide,include_current,ex1_ex2" />
+
+		ddGRelax
+		<FastRelax name="ddg_relax" scorefxn="ref15_cart_cst" dualspace="1" bondangle="1" repeats="1" relaxscript="MonomerRelax2019" cst_file="constraints.cst" movemap_factory="mm_factory" packer_palette="design_palette" task_operations="only_repack_near_peptide,include_current,ex1_ex2" />		
+        </MOVERS> 
+	
+	<FILTERS>
+		Report binding energy at the end
+		<Ddg name="binding_energy" scorefxn="REF2015" threshold="100" repeats="1" repack_bound="0" repack_unbound="0" relax_bound="0" relax_unbound="1" relax_mover="ddg_relax" translate_by="10000"/>
+	</FILTERS>
+
+	<PROTOCOLS>
+		<Add mover="CN_bond" />
+		<Add mover="interface_relax" />
+		<Add mover="imp_checks" />
+		<Add filter="binding_energy" />
+	</PROTOCOLS>
+	<OUTPUT scorefxn="REF2015" />
+</ROSETTASCRIPTS>

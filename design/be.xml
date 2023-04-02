@@ -1,0 +1,10 @@
+<ROSETTASCRIPTS>
+        <FILTERS>
+        	<Ddg name="binding_energy" scorefxn="REF2015" />
+	</FILTERS>
+
+	<PROTOCOLS>
+		<Add filter="binding_energy" />
+	</PROTOCOLS>
+	<OUTPUT scorefxn="REF2015" />
+</ROSETTASCRIPTS>
